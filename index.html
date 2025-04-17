@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <!--suppress HtmlFormInputWithoutLabel -->
+    <select id="device" onchange="updateSelectedDevice();"></select><br>
+    <audio controls id="playback"></audio>
+
+    <script>
+        window.currentDevice = null;
+
+        async function refreshDevices() {
+            let devices = (await navigator.mediaDevices.enumerateDevices()).filter(i => i.kind === "audiooutput" && i.deviceId !== "default" && !i.label.startsWith("VB-Cable ") && i.label !== "VB-Cable");
+
+            document.getElementById("device").innerHTML = devices.map(i => `
+            <option value="${i.deviceId}" ${window.currentDevice === i.deviceId ? "selected" : ""}>${i.label}</option>
+            `).join("");
+        }
+
+        function updateSelectedDevice() {
+            window.currentDevice = document.getElementById("device").value;
+            document.getElementById("playback").setSinkId(window.currentDevice);
+        }
+
+        async function startPlayback() {
+            document.getElementById("playback").srcObject = window.audioStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    latency: { ideal: 0 },
+                    deviceId: { exact: vbCable.deviceId },
+                    noiseSuppression: { exact: false },
+                    echoCancellation: { exact: false }
+                },
+                video: false
+            });
+            document.getElementById("playback").play();
+
+            window.audioTrack = audioStream.getAudioTracks()[0];
+            window.audioSettings = audioTrack.getSettings();
+        }
+
+        (async () => {
+            window.vbCable = (await navigator.mediaDevices.enumerateDevices()).filter(i => i.kind === "audioinput" && (i.label.startsWith("VB-Cable ") || i.label === "VB-Cable"))[0];
+
+            await refreshDevices();
+            updateSelectedDevice();
+            await startPlayback();
+
+        })();
+    </script>
+</body>
+</html>
